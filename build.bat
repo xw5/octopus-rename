@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-REM Build Octopus File GUI - requires Lazarus installed at C:\lazarus
+REM Build Octopus Rename GUI - requires Lazarus installed at C:\lazarus
 REM Usage: build.bat [release]  (release = build + package release zip)
 cd /d "%~dp0src"
 
@@ -40,12 +40,12 @@ REM ---- VERSIONINFO resource: exe properties show version info ----
 >> versioninfo.rc echo   BEGIN
 >> versioninfo.rc echo     BLOCK "040904B0"
 >> versioninfo.rc echo     BEGIN
->> versioninfo.rc echo       VALUE "CompanyName", "Octopus File"
->> versioninfo.rc echo       VALUE "FileDescription", "Octopus File - batch rename tool"
+>> versioninfo.rc echo       VALUE "CompanyName", "Octopus Rename"
+>> versioninfo.rc echo       VALUE "FileDescription", "Octopus Rename - batch rename tool"
 >> versioninfo.rc echo       VALUE "FileVersion", "%APP_VERSION%.0"
 >> versioninfo.rc echo       VALUE "InternalName", "fprename_gui"
 >> versioninfo.rc echo       VALUE "OriginalFilename", "fprename_gui.exe"
->> versioninfo.rc echo       VALUE "ProductName", "Octopus File"
+>> versioninfo.rc echo       VALUE "ProductName", "Octopus Rename"
 >> versioninfo.rc echo       VALUE "ProductVersion", "%APP_VERSION%"
 >> versioninfo.rc echo     END
 >> versioninfo.rc echo   END
@@ -83,7 +83,7 @@ if not exist ..\bin\fprename_gui.exe (
 )
 echo BUILD OK: bin\fprename_gui.exe  v%APP_VERSION%
 
-REM ---- Package release zip: release\OctopusFile-v<version>-win64.zip ----
+REM ---- Package release zip: release\OctopusRename-v<version>-win64.zip ----
 if /i "%~1"=="release" (
   powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\package.ps1" -Version "%APP_VERSION%"
   if errorlevel 1 (

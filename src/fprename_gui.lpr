@@ -16,7 +16,7 @@ uses
 
 begin
   RequireDerivedFormResource := True;
-  Application.Title := '章鱼文件';
+  Application.Title := '章鱼重命名';
   Application.Scaled := True;
   Application.Initialize;
   Application.CreateForm(TForm1, Form1);

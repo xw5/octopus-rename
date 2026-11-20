@@ -1,14 +1,14 @@
 <div align="center">
 
-<img src="assets/icon.png" width="128" alt="章鱼文件 logo"/>
+<img src="assets/icon.png" width="128" alt="章鱼重命名 logo"/>
 
-# 章鱼文件 (Octopus File)
+# 章鱼重命名 (Octopus Rename)
 
 **章鱼的 8 只腕足 ↔ 规则链的 8 条重命名规则**
 
 </div>
 
-基于 Free Pascal / Lazarus 的 Windows 文件批量重命名工具（GUI 版），规则链模式，参考原章鱼文件 AHK 项目重写。
+基于 Free Pascal / Lazarus 的 Windows 文件批量重命名工具（GUI 版），规则链模式，参考原 AHK 版本项目重写。
 
 安全优先设计：先预览后执行、防覆盖、两阶段重命名中途失败自动回滚、撤销日志一键恢复。
 
@@ -28,7 +28,7 @@
 ## 目录结构
 
 ```
-octopus-file/
+octopus-rename/
 ├── build.bat        # 一键构建脚本（exe 输出到 bin\；加 release 参数打包发布 zip）
 ├── CHANGELOG.md     # 更新日志
 ├── assets/
@@ -59,7 +59,7 @@ octopus-file/
 ## 版本与发布
 
 - **版本号只在 `src/version.inc` 维护**（`APP_VERSION = '1.0.1';`），`build.bat` 每次构建自动读取并同步到 exe 属性的版本信息（VERSIONINFO）、Windows 清单和窗口标题
-- 发布正式版：改好 `src/version.inc` 并更新 `CHANGELOG.md` 后运行 `build.bat release`，生成 `release\OctopusFile-v1.0.1-win64.zip`（内含 `章鱼文件.exe`）
+- 发布正式版：改好 `src/version.inc` 并更新 `CHANGELOG.md` 后运行 `build.bat release`，生成 `release\OctopusRename-v1.0.1-win64.zip`（内含 `章鱼重命名.exe`）
 - 更新记录见 [CHANGELOG.md](CHANGELOG.md)
 
 ## 安全机制

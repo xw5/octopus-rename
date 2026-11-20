@@ -1,5 +1,11 @@
 # 更新日志 (Changelog)
 
+## 未发布
+
+### 变更
+- 项目更名为 **octopus-rename**（章鱼重命名 / Octopus Rename）：一个功能一个项目，本仓库专注批量重命名
+- 窗口标题、exe 属性（ProductName/FileDescription）、发布 zip（`OctopusRename-v<版本>-win64.zip`，内含 `章鱼重命名.exe`）同步更名
+
 ## 1.0.1 - 2026-11-21
 
 ### 重构

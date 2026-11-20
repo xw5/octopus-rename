@@ -1,6 +1,6 @@
 unit Unit1;
 
-{ 批量重命名（参考 octopus-file AHK 项目重写为 Free Pascal/Lazarus 版）
+{ 批量重命名（参考原 AHK 版本项目重写为 Free Pascal/Lazarus 版）
   支持：文件 + 文件夹、规则链（勾选 + 上下排序）、实时预览、冲突检测、
         两阶段重命名（中途失败自动回滚）、撤销栈、日志
   规则：①自定义名 ②前缀 ③后缀 ④查找替换(含正则) ⑤序号 ⑥大小写 ⑦清理非法字符 ⑧删除字符 }
@@ -137,7 +137,7 @@ const
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
-  Caption := '章鱼文件 v' + APP_VERSION;
+  Caption := '章鱼重命名 v' + APP_VERSION;
   Randomize;
   Font.Name := 'Microsoft YaHei UI';
   Font.Size := 10;
