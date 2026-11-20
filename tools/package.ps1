@@ -24,12 +24,14 @@ $stageExe = Join-Path $releaseDir ($appName + '.exe')
 Copy-Item $exe $stageExe -Force
 $stageReadme = Join-Path $releaseDir 'README.md'
 Copy-Item (Join-Path $repoRoot 'README.md') $stageReadme -Force
+$stageUsage = Join-Path $releaseDir 'USAGE.md'
+Copy-Item (Join-Path $repoRoot 'USAGE.md') $stageUsage -Force
 
 $zip = Join-Path $releaseDir ('OctopusRename-v' + $Version + '-win64.zip')
 if (Test-Path $zip) { Remove-Item $zip -Force }
-Compress-Archive -Path $stageExe, $stageReadme -DestinationPath $zip
+Compress-Archive -Path $stageExe, $stageReadme, $stageUsage -DestinationPath $zip
 
 # Keep only the zip in release\
-Remove-Item $stageExe, $stageReadme -Force
+Remove-Item $stageExe, $stageReadme, $stageUsage -Force
 
 Write-Host ('RELEASE OK: release\OctopusRename-v' + $Version + '-win64.zip')
