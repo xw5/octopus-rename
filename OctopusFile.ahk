@@ -3,7 +3,7 @@
 SetWorkingDir A_ScriptDir
 
 ; 编译指令（Ahk2Exe）
-;@Ahk2Exe-SetName 章鱼文件工具箱
+;@Ahk2Exe-SetName 章鱼工具
 ;@Ahk2Exe-SetVersion 1.0.0
 ;@Ahk2Exe-SetMainIcon assets\icon.ico
 
@@ -27,7 +27,7 @@ class ToolBox {
 
     static Show() {
         if !IsObject(ToolBox.gui) {
-            g := Gui("+Resize +MinSize560x380", I18n("章鱼文件工具箱"))
+            g := Gui("+Resize +MinSize560x380", I18n("章鱼工具"))
 
             g.SetFont("s10", "Microsoft YaHei UI")
             g.AddText("x24 y20 w396 h24 +0x200 c666666", I18n("选择一个工具开始"))

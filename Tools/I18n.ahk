@@ -68,7 +68,7 @@ TF(zh, params*) {
 ; ---------- 英文词典 ----------
 global I18N_EN := Map(
     ; 主工具箱
-    "章鱼文件工具箱", "Octopus File Toolbox",
+    "章鱼工具", "Octopus Tools",
     "选择一个工具开始", "Pick a tool to start",
     "批量重命名", "Batch Rename",
     "选择一批文件或文件夹，按规则批量重命名（支持预览与撤销）", "Select files or folders and rename them in batch by rules (with preview & undo)",
