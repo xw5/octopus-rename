@@ -1,15 +1,19 @@
 ; ============================================================
-; 批量重命名模块  v2.0  (AutoHotkey v2)
+; 批量重命名模块  v2.2  (AutoHotkey v2)
 ; 支持：文件 + 文件夹、规则链（勾选 + 排序）、实时预览、冲突检测、撤销、日志
 ; v2 变更：规则由「一排固定字段」改为「可勾选、可上下移动的规则链」，
 ;          每条规则独占一行，未勾选即不参与；新增「删除字符」规则；
 ;          底部状态栏实时显示当前生效的规则链。
+; v2.1 变更：新增「自定义名」规则——输入名称后所有项目统一以此命名，
+;          可配合「序号」规则避免重名；行高 38→34 以容纳第 8 条规则。
+; v2.2 变更：接入 I18n 中英文国际化——界面文案一律经 I18n()/TF() 取词，
+;          key 为中文原文；状态值内部保留中文 key 做逻辑判断，仅显示时翻译。
 ; 修复：IsArray 不存在、AddDropDown 无效、DropDownList.Value 为文本、
 ;       ListView.Add 参数形式、Integer() 不存在等 v2 兼容问题
 ; ============================================================
 
 global BR := {gui: 0, lv: 0, items: [], undo: [], logPath: "",
-              rules: [], ruleTop: 292, rowH: 38}
+              rules: [], ruleTop: 292, rowH: 34}
 
 ; ---------- 入口 ----------
 BR_Open(*) {
@@ -19,40 +23,52 @@ BR_Open(*) {
     BR.gui.Show("w1040 h688")
 }
 
+; 切换语言时销毁窗口，下次打开按新语言重建
+BR_Rebuild() {
+    global BR
+    if IsObject(BR.gui) {
+        BR.gui.Destroy()
+        BR.gui := 0
+    }
+}
+
 BR_BuildGui() {
     global BR
-    g := Gui("+MinSize1040x688", "批量重命名")
+    g := Gui("+MinSize1040x688", I18n("批量重命名"))
     g.SetFont("s10", "Microsoft YaHei UI")
     BR.gui := g                          ; 先挂上，供规则重排时 WinRedraw 使用
 
     ; 顶部操作栏
-    g.AddButton("x16  y12 w100 h30", "添加文件").OnEvent("Click", (*) => BR_AddFiles())
-    g.AddButton("x124 y12 w100 h30", "添加文件夹").OnEvent("Click", (*) => BR_AddFolders())
-    g.AddButton("x232 y12 w110 h30", "从剪贴板添加").OnEvent("Click", (*) => BR_AddClipboard())
-    g.AddButton("x350 y12 w90  h30", "移除选中").OnEvent("Click", (*) => BR_RemoveSelected())
-    g.AddButton("x448 y12 w70  h30", "清空").OnEvent("Click", (*) => BR_Clear())
-    g.AddText("x540 y18 w40 h22 +0x200", "范围")
-    BR.scope := g.AddDDL("x582 y14 w110", ["文件+文件夹", "仅文件", "仅文件夹"])
-    g.AddText("x704 y18 w310 h22 +0x200 c909090", "提示：文件可多选，文件夹逐个添加")
+    g.AddButton("x16  y12 w100 h30", I18n("添加文件")).OnEvent("Click", (*) => BR_AddFiles())
+    g.AddButton("x124 y12 w100 h30", I18n("添加文件夹")).OnEvent("Click", (*) => BR_AddFolders())
+    g.AddButton("x232 y12 w110 h30", I18n("从剪贴板添加")).OnEvent("Click", (*) => BR_AddClipboard())
+    g.AddButton("x350 y12 w90  h30", I18n("移除选中")).OnEvent("Click", (*) => BR_RemoveSelected())
+    g.AddButton("x448 y12 w70  h30", I18n("清空")).OnEvent("Click", (*) => BR_Clear())
+    g.AddText("x540 y18 w40 h22 +0x200", I18n("范围"))
+    BR.scope := g.AddDDL("x582 y14 w110", [I18n("文件+文件夹"), I18n("仅文件"), I18n("仅文件夹")])
+    g.AddText("x704 y18 w310 h22 +0x200 c909090", I18n("提示：可直接拖放文件/文件夹到窗口"))
+
+    ; 拖放支持：从资源管理器拖多个文件/文件夹丢到窗口即可全部加入
+    g.OnEvent("DropFiles", BR_OnDropFiles)
 
     ; 列表
-    BR.lv := g.AddListView("x16 y50 w1008 h208 +Grid +ReadOnly", ["原名称", "新名称", "状态", "完整路径"])
+    BR.lv := g.AddListView("x16 y50 w1008 h208 +Grid +ReadOnly", [I18n("原名称"), I18n("新名称"), I18n("状态"), I18n("完整路径")])
     BR.lv.ModifyCol(1, 200)
     BR.lv.ModifyCol(2, 240)
     BR.lv.ModifyCol(3, 110)
     BR.lv.ModifyCol(4, 445)
 
     ; 规则链
-    g.AddGroupBox("x16 y266 w1008 h300", "命名规则（勾选＝启用；↑↓ 调整顺序，自上而下依次应用）")
+    g.AddGroupBox("x16 y266 w1008 h300", I18n("命名规则（勾选＝启用；↑↓ 调整顺序，自上而下依次应用）"))
     BR_BuildRules(g)
     BR_LayoutRules()
 
     ; 底部操作
-    g.AddButton("x16  y574 w110 h34", "刷新预览").OnEvent("Click", (*) => BR_Refresh())
-    g.AddButton("x134 y574 w130 h34", "执行重命名").OnEvent("Click", (*) => BR_Execute())
-    g.AddButton("x272 y574 w110 h34", "撤销上次").OnEvent("Click", (*) => BR_Undo())
-    g.AddButton("x390 y574 w110 h34", "打开日志").OnEvent("Click", (*) => BR_OpenLog())
-    g.AddButton("x508 y574 w110 h34", "重置规则").OnEvent("Click", (*) => BR_ResetRules())
+    g.AddButton("x16  y574 w110 h34", I18n("刷新预览")).OnEvent("Click", (*) => BR_Refresh())
+    g.AddButton("x134 y574 w130 h34", I18n("执行重命名")).OnEvent("Click", (*) => BR_Execute())
+    g.AddButton("x272 y574 w110 h34", I18n("撤销上次")).OnEvent("Click", (*) => BR_Undo())
+    g.AddButton("x390 y574 w110 h34", I18n("打开日志")).OnEvent("Click", (*) => BR_OpenLog())
+    g.AddButton("x508 y574 w110 h34", I18n("重置规则")).OnEvent("Click", (*) => BR_ResetRules())
     BR.status := g.AddEdit("x16 y614 w1008 h62 +ReadOnly +Multi", "")
 
     ; 范围变化也要重算
@@ -74,52 +90,57 @@ BR_BuildRules(g) {
     ; ① 添加前缀
     r := BR_NewRule(g, "prefix", "添加前缀", true)
     BR_Put(r, "edit", "v", 166, 360, 26, 6, "")
-    BR_Put(r, "text", "", 534, 330, 22, 9, "追加到名称最前面", "909090")
+    BR_Put(r, "text", "", 534, 330, 22, 9, I18n("追加到名称最前面"), "909090")
 
     ; ② 添加后缀
     r := BR_NewRule(g, "suffix", "添加后缀", true)
     BR_Put(r, "edit", "v", 166, 360, 26, 6, "")
-    BR_Put(r, "text", "", 534, 330, 22, 9, "追加到扩展名之前", "909090")
+    BR_Put(r, "text", "", 534, 330, 22, 9, I18n("追加到扩展名之前"), "909090")
 
     ; ③ 查找替换
     r := BR_NewRule(g, "replace", "查找替换", true)
     BR_Put(r, "edit", "find", 166, 180, 26, 6, "")
     BR_Put(r, "text", "", 352, 20, 22, 9, "→")
     BR_Put(r, "edit", "repl", 376, 180, 26, 6, "")
-    BR_Put(r, "check", "regex", 566, 76, 22, 9, "正则")
-    BR_Put(r, "text", "", 650, 220, 22, 9, "查找留空则不执行", "909090")
+    BR_Put(r, "check", "regex", 566, 76, 22, 9, I18n("正则"))
+    BR_Put(r, "text", "", 650, 220, 22, 9, I18n("查找留空则不执行"), "909090")
 
     ; ④ 序号
     r := BR_NewRule(g, "seq", "序号", false)
-    BR_Put(r, "text", "", 166, 34, 22, 9, "起始")
+    BR_Put(r, "text", "", 166, 34, 22, 9, I18n("起始"))
     BR_Put(r, "edit", "start", 202, 52, 26, 6, "1")
-    BR_Put(r, "text", "", 260, 34, 22, 9, "步进")
+    BR_Put(r, "text", "", 260, 34, 22, 9, I18n("步进"))
     BR_Put(r, "edit", "step", 296, 52, 26, 6, "1")
-    BR_Put(r, "text", "", 354, 34, 22, 9, "位数")
+    BR_Put(r, "text", "", 354, 34, 22, 9, I18n("位数"))
     BR_Put(r, "edit", "digits", 390, 52, 26, 6, "3")
-    BR_Put(r, "ddl", "pos", 450, 120, 26, 6, ["放开头", "放结尾", "替换名称"])
-    BR_Put(r, "text", "", 582, 290, 22, 9, "只在本次选中的项目内递增", "909090")
+    BR_Put(r, "ddl", "pos", 450, 120, 26, 6, [I18n("放开头"), I18n("放结尾"), I18n("替换名称")])
+    BR_Put(r, "text", "", 582, 290, 22, 9, I18n("只在本次选中的项目内递增"), "909090")
 
     ; ⑤ 大小写（文件名 + 扩展名）
     r := BR_NewRule(g, "case", "大小写", true)
-    BR_Put(r, "ddl", "nm", 166, 120, 26, 6, ["大小写不变", "全部大写", "全部小写", "首字母大写"])
-    BR_Put(r, "text", "", 294, 44, 22, 9, "扩展名")
-    BR_Put(r, "ddl", "ext", 340, 110, 26, 6, ["扩展名不变", "扩展名小写", "扩展名大写"])
-    BR_Put(r, "text", "", 470, 380, 22, 9, "仅影响名称部分，扩展名单独设置", "909090")
+    BR_Put(r, "ddl", "nm", 166, 120, 26, 6, [I18n("大小写不变"), I18n("全部大写"), I18n("全部小写"), I18n("首字母大写")])
+    BR_Put(r, "text", "", 294, 44, 22, 9, I18n("扩展名"))
+    BR_Put(r, "ddl", "ext", 340, 110, 26, 6, [I18n("扩展名不变"), I18n("扩展名小写"), I18n("扩展名大写")])
+    BR_Put(r, "text", "", 470, 380, 22, 9, I18n("仅影响名称部分，扩展名单独设置"), "909090")
 
     ; ⑥ 清理非法字符
     r := BR_NewRule(g, "clean", "清理非法字符", false)
-    BR_Put(r, "text", "", 166, 44, 22, 9, "替换为")
+    BR_Put(r, "text", "", 166, 44, 22, 9, I18n("替换为"))
     BR_Put(r, "edit", "ch", 214, 50, 26, 6, "_")
-    BR_Put(r, "text", "", 274, 440, 22, 9, '把 \ / : * ? " < > | 替换成该字符', "909090")
+    BR_Put(r, "text", "", 274, 440, 22, 9, I18n('把 \ / : * ? " < > | 替换成该字符'), "909090")
 
     ; ⑦ 删除字符
     r := BR_NewRule(g, "trim", "删除字符", false)
-    BR_Put(r, "text", "", 166, 60, 22, 9, "起始位置")
+    BR_Put(r, "text", "", 166, 60, 22, 9, I18n("起始位置"))
     BR_Put(r, "edit", "pos", 230, 50, 26, 6, "")
-    BR_Put(r, "text", "", 290, 60, 22, 9, "删除长度")
+    BR_Put(r, "text", "", 290, 60, 22, 9, I18n("删除长度"))
     BR_Put(r, "edit", "len", 354, 50, 26, 6, "")
-    BR_Put(r, "text", "", 414, 430, 22, 9, "如 起 2 / 长 3 → 去掉第 2~4 个字符；长度留空＝删到末尾", "909090")
+    BR_Put(r, "text", "", 414, 430, 22, 9, I18n("如 起 2 / 长 3 → 去掉第 2~4 个字符；长度留空＝删到末尾"), "909090")
+
+    ; ⑧ 自定义名
+    r := BR_NewRule(g, "custom", "自定义名", true)
+    BR_Put(r, "edit", "v", 166, 360, 26, 6, "")
+    BR_Put(r, "text", "", 534, 330, 22, 9, I18n("所有项目统一以此命名（留空不生效，可配序号避免重名）"), "909090")
 
     ; 默认下拉选中项（v2 序号从 1 开始）
     for r in BR.rules {
@@ -133,6 +154,7 @@ BR_BuildRules(g) {
 }
 
 ; 创建一条规则行：勾选框 + 标题 + 上移/下移
+; title 存中文原文 key，显示时经 I18n() 翻译（BR_LayoutRules）
 BR_NewRule(g, key, title, on) {
     global BR
     r := {key: key, title: title, on: on, c: Map(), ui: [], g: g}
@@ -199,7 +221,7 @@ BR_LayoutRules() {
         y := top + (i - 1) * BR.rowH
         for sp in r.ui
             sp.c.Move(sp.x, y + sp.dy, sp.w, sp.h)
-        r.c["lbl"].Text := Chr(0x2460 + i - 1) "  " r.title
+        r.c["lbl"].Text := Chr(0x2460 + i - 1) "  " I18n(r.title)
         r.c["up"].Enabled := (i > 1)
         r.c["dn"].Enabled := (i < cnt)
     }
@@ -232,10 +254,10 @@ BR_MoveRule(key, dir) {
 ; 一键回到出厂状态（全部重置为默认值 + 默认勾选）
 BR_ResetRules() {
     global BR
-    if MsgBox("将所有规则恢复默认（参数清空、顺序还原）？", "重置规则", "YesNo") = "No"
+    if MsgBox(I18n("将所有规则恢复默认（参数清空、顺序还原）？"), I18n("重置规则"), "YesNo") = "No"
         return
-    defOn := Map("prefix", 1, "suffix", 1, "replace", 1, "seq", 0, "case", 1, "clean", 0, "trim", 0)
-    defOrder := ["prefix", "suffix", "replace", "seq", "case", "clean", "trim"]
+    defOn := Map("prefix", 1, "suffix", 1, "replace", 1, "seq", 0, "case", 1, "clean", 0, "trim", 0, "custom", 1)
+    defOrder := ["custom", "seq", "prefix", "suffix", "replace", "case", "clean", "trim"]
     byKey := Map()
     for r in BR.rules
         byKey[r.key] := r
@@ -307,25 +329,30 @@ BR_Eligible(item) {
 
 ; ---------- 添加项目 ----------
 BR_AddFiles() {
-    picked := FileSelect("M", A_Desktop, "选择文件（可多选）", "所有文件 (*.*)")
+    picked := FileSelect("M", A_Desktop, I18n("选择文件（可多选）"), "所有文件 (*.*)")
     BR_AddPaths(BR_NormalizePicked(picked))
 }
 
 BR_AddFolders() {
     loop {
-        f := DirSelect(A_Desktop, 0, "添加文件夹：选择一个文件夹，取消则结束")
+        f := DirSelect(A_Desktop, 0, I18n("添加文件夹：选择一个文件夹，取消则结束"))
         if f = ""
             break
         BR_AddPaths([f])
-        if MsgBox("已添加：`n" f "`n`n继续添加下一个文件夹？", "添加文件夹", "YesNo") = "No"
+        if MsgBox(TF("已添加：`n{1}`n`n继续添加下一个文件夹？", f), I18n("添加文件夹"), "YesNo") = "No"
             break
     }
+}
+
+; 拖放处理：一次可拖入多个文件/文件夹（拖放不走 COM 弹窗，稳定可靠）
+BR_OnDropFiles(g, ctrl, files, x, y) {
+    BR_AddPaths(files)
 }
 
 BR_AddClipboard() {
     txt := Trim(A_Clipboard)
     if txt = "" {
-        MsgBox "剪贴板中没有路径。", "提示", "Iconi"
+        MsgBox(I18n("剪贴板中没有路径。"), I18n("提示"), "Iconi")
         return
     }
     paths := []
@@ -389,6 +416,7 @@ BR_Clear() {
 }
 
 ; ---------- 名称计算（按规则链顺序） ----------
+; 状态为中文原文 key，逻辑判断用 key，显示时经 I18n() 翻译
 BR_Compute(item, seqNo) {
     global BR
     if item.done
@@ -403,6 +431,11 @@ BR_Compute(item, seqNo) {
         if !r.on
             continue
         switch r.key {
+            case "custom":
+                cv := r.c["v"].Value
+                if (cv != "")
+                    s := cv
+
             case "prefix":
                 s := r.c["v"].Value s
 
@@ -508,7 +541,7 @@ BR_Refresh() {
             } else
                 seen[key] := i
         }
-        BR.lv.Add("", item.name, item.newName, item.status, item.path)
+        BR.lv.Add("", item.name, item.newName, I18n(item.status), item.path)
     }
     BR.lv.Opt("+Redraw")
 
@@ -518,8 +551,7 @@ BR_Refresh() {
             ready++
 
     BR.status.Value := BR_ChainDesc() "`n"
-                     . "共 " BR.items.Length " 项，可重命名 " ready " 项。"
-                     . "未勾选的规则不参与；状态不是「就绪」的项目会被跳过。"
+                     . TF("共 {1} 项，可重命名 {2} 项。未勾选的规则不参与；状态不是「就绪」的项目会被跳过。", BR.items.Length, ready)
 }
 
 ; 生成当前生效规则链的文字说明
@@ -537,8 +569,8 @@ BR_ChainDesc() {
         parts.Push(Chr(0x2460 + n - 1) " " d)
     }
     if (parts.Length = 0)
-        return "规则链：（没有生效的规则，不会改名）"
-    out := "规则链："
+        return I18n("规则链：（没有生效的规则，不会改名）")
+    out := I18n("规则链：")
     for i, p in parts
         out .= (i = 1 ? "" : "  →  ") p
     return out
@@ -547,50 +579,53 @@ BR_ChainDesc() {
 ; 单条规则的一句话描述；无实质参数时返回空串，避免噪声
 BR_RuleDesc(r) {
     switch r.key {
+        case "custom":
+            v := r.c["v"].Value
+            return (v = "") ? "" : TF("自定义名「{1}」", v)
+
         case "prefix":
             v := r.c["v"].Value
-            return (v = "") ? "" : "前缀「" v "」"
+            return (v = "") ? "" : TF("前缀「{1}」", v)
 
         case "suffix":
             v := r.c["v"].Value
-            return (v = "") ? "" : "后缀「" v "」"
+            return (v = "") ? "" : TF("后缀「{1}」", v)
 
         case "replace":
             f := r.c["find"].Value
             if (f = "")
                 return ""
-            return "替换「" f "」→「" r.c["repl"].Value "」" (r.c["regex"].Value ? "（正则）" : "")
+            return TF("替换「{1}」→「{2}」", f, r.c["repl"].Value) (r.c["regex"].Value ? I18n("（正则）") : "")
 
         case "seq":
-            posTxt := ["放开头", "放结尾", "替换名称"]
+            posTxt := [I18n("放开头"), I18n("放结尾"), I18n("替换名称")]
             p := r.c["pos"].Value
             if (p < 1 || p > 3)
                 p := 1
-            return "序号 " r.c["start"].Value " 起 / 步 " r.c["step"].Value
-                 . " / " r.c["digits"].Value " 位 / " posTxt[p]
+            return TF("序号 {1} 起 / 步 {2} / {3} 位 / {4}", r.c["start"].Value, r.c["step"].Value, r.c["digits"].Value, posTxt[p])
 
         case "case":
             d := ""
             switch r.c["nm"].Value {
-                case 2: d := "全大写"
-                case 3: d := "全小写"
-                case 4: d := "首字母大写"
+                case 2: d := I18n("全大写")
+                case 3: d := I18n("全小写")
+                case 4: d := I18n("首字母大写")
             }
             switch r.c["ext"].Value {
-                case 2: d .= (d = "" ? "" : "，") "扩展名小写"
-                case 3: d .= (d = "" ? "" : "，") "扩展名大写"
+                case 2: d .= (d = "" ? "" : I18n("，")) I18n("扩展名小写")
+                case 3: d .= (d = "" ? "" : I18n("，")) I18n("扩展名大写")
             }
             return d
 
         case "clean":
-            return "清理非法字符为「" SubStr(Trim(r.c["ch"].Value ""), 1, 1) "」"
+            return TF("清理非法字符为「{1}」", SubStr(Trim(r.c["ch"].Value ""), 1, 1))
 
         case "trim":
             pv := Trim(r.c["pos"].Value "")
             if (pv = "")
                 return ""
             lv := Trim(r.c["len"].Value "")
-            return "删第 " pv " 位起" (lv = "" ? "到末尾" : " " lv " 个字符")
+            return TF("删第 {1} 位起", pv) (lv = "" ? I18n("到末尾") : TF(" {1} 个字符", lv))
     }
     return ""
 }
@@ -618,7 +653,7 @@ BR_RenameBatch(pairs) {
         if !BR_DoMove(p.from, tmp, p.isDir) {
             for j, t in temps
                 BR_DoMove(t.from, t.old, t.isDir)
-            return {ok: false, msg: "无法重命名：" p.from}
+            return {ok: false, msg: TF("无法重命名：{1}", p.from)}
         }
         temps.Push({old: p.from, from: tmp, to: p.to, isDir: p.isDir})
     }
@@ -631,7 +666,7 @@ BR_RenameBatch(pairs) {
             for j, u in temps
                 if FileExist(u.from)
                     BR_DoMove(u.from, u.old, u.isDir)
-            return {ok: false, msg: "无法写入目标：" t.to}
+            return {ok: false, msg: TF("无法写入目标：{1}", t.to)}
         }
         done.Push(t)
     }
@@ -644,7 +679,7 @@ BR_Log(lines) {
     DirCreate(dir)
     if BR.logPath = "" {
         BR.logPath := dir "\rename_" FormatTime(A_Now, "yyyyMMdd_HHmmss") ".log"
-        FileAppend("批量重命名日志 · " FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss") "`n", BR.logPath, "UTF-8")
+        FileAppend(TF("批量重命名日志 · {1}", FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss")) "`n", BR.logPath, "UTF-8")
     }
     for line in lines
         FileAppend(line "`n", BR.logPath, "UTF-8")
@@ -659,7 +694,7 @@ BR_Execute() {
             pairs.Push({from: item.path, to: item.newPath, isDir: item.isDir})
 
     if pairs.Length = 0 {
-        MsgBox "没有可重命名的项目。`n`n请先添加文件，并确认规则链有生效内容、状态为「就绪」。", "批量重命名", "Iconi"
+        MsgBox(I18n("没有可重命名的项目。`n`n请先添加文件，并确认规则链有生效内容、状态为「就绪」。"), I18n("批量重命名"), "Iconi")
         return
     }
 
@@ -670,14 +705,14 @@ BR_Execute() {
         preview .= BR_ShortName(p.from) "  →  " BR_ShortName(p.to) "`n"
     }
     if pairs.Length > 8
-        preview .= "…… 其余 " (pairs.Length - 8) " 项`n"
+        preview .= TF("…… 其余 {1} 项", pairs.Length - 8) "`n"
 
-    if MsgBox("即将重命名 " pairs.Length " 项：`n`n" preview "`n确认继续？", "批量重命名", "YesNo") = "No"
+    if MsgBox(TF("即将重命名 {1} 项：`n`n{2}`n确认继续？", pairs.Length, preview), I18n("批量重命名"), "YesNo") = "No"
         return
 
     res := BR_RenameBatch(pairs)
     if !res.ok {
-        MsgBox res.msg "`n`n操作已回滚，文件保持原名。", "失败", "Iconx"
+        MsgBox res.msg "`n`n" I18n("操作已回滚，文件保持原名。"), I18n("失败"), "Iconx"
         return
     }
 
@@ -700,8 +735,8 @@ BR_Execute() {
     }
     BR_Log(logs)
     BR_Refresh()
-    BR.status.Value := "完成：成功重命名 " pairs.Length " 项。`n可用「撤销上次」恢复。"
-    MsgBox "完成：成功重命名 " pairs.Length " 项。", "批量重命名", "Iconi"
+    BR.status.Value := TF("完成：成功重命名 {1} 项。`n可用「撤销上次」恢复。", pairs.Length)
+    MsgBox(TF("完成：成功重命名 {1} 项。", pairs.Length), I18n("批量重命名"), "Iconi")
 }
 
 BR_ShortName(path) {
@@ -712,7 +747,7 @@ BR_ShortName(path) {
 BR_Undo() {
     global BR
     if BR.undo.Length = 0 {
-        MsgBox "没有可撤销的操作。", "提示", "Iconi"
+        MsgBox(I18n("没有可撤销的操作。"), I18n("提示"), "Iconi")
         return
     }
     batch := BR.undo[BR.undo.Length]
@@ -722,12 +757,12 @@ BR_Undo() {
         pairs.Push({from: batch[i].to, to: batch[i].from, isDir: batch[i].isDir})
     }
 
-    if MsgBox("将撤销上次重命名的 " pairs.Length " 项，恢复原文件名。确认？", "撤销", "YesNo") = "No"
+    if MsgBox(TF("将撤销上次重命名的 {1} 项，恢复原文件名。确认？", pairs.Length), I18n("撤销"), "YesNo") = "No"
         return
 
     res := BR_RenameBatch(pairs)
     if !res.ok {
-        MsgBox res.msg "`n`n撤销失败，请手动检查。", "失败", "Iconx"
+        MsgBox res.msg "`n`n" I18n("撤销失败，请手动检查。"), I18n("失败"), "Iconx"
         return
     }
 
@@ -745,8 +780,8 @@ BR_Undo() {
         logs.Push("UNDO  " p.from "  ->  " p.to)
     BR_Log(logs)
     BR_Refresh()
-    BR.status.Value := "已撤销上次重命名，恢复 " pairs.Length " 项。"
-    MsgBox "已撤销 " pairs.Length " 项。", "撤销", "Iconi"
+    BR.status.Value := TF("已撤销上次重命名，恢复 {1} 项。", pairs.Length)
+    MsgBox(TF("已撤销 {1} 项。", pairs.Length), I18n("撤销"), "Iconi")
 }
 
 BR_OpenLog() {
