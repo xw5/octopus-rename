@@ -109,6 +109,7 @@ var
 
 implementation
 
+{$I version.inc}
 {$R *.lfm}
 
 // ---------- Windows 现代文件夹多选对话框（IFileOpenDialog） ----------
@@ -136,6 +137,7 @@ const
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
+  Caption := '章鱼文件 v' + APP_VERSION;
   Randomize;
   Font.Name := 'Microsoft YaHei UI';
   Font.Size := 10;

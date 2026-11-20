@@ -12,10 +12,11 @@ uses
 
 {$R *.res}
 {$R appicon.res}
+{$R versioninfo.res}
 
 begin
   RequireDerivedFormResource := True;
-  Application.Title := 'fprename 批量重命名';
+  Application.Title := '章鱼文件';
   Application.Scaled := True;
   Application.Initialize;
   Application.CreateForm(TForm1, Form1);

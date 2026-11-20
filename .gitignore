@@ -1,6 +1,9 @@
 # Build output
 bin/
+release/
 src/lib/
+src/versioninfo.rc
+src/manifest_gen.rc
 *.o
 *.obj
 *.ppu
@@ -8,6 +11,9 @@ src/lib/
 *.compiled
 *.res
 *.exe
+
+# ZCode agent workspace
+.zcode/
 
 # Lazarus session / backup files
 *.lps
